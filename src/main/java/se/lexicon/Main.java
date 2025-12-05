@@ -3,18 +3,18 @@ package se.lexicon;
 import java.util.Arrays;
 import java.util.List;
 import java.util.Scanner;
+import java.util.function.Supplier;
 
 public class Main {
     public static void main(String[] args) {
         Scanner scanner = new Scanner(System.in);
-        InnerMenu converters = new InnerMenu(scanner); // create instance of InnerMenu class
+        InnerMenu converters = new InnerMenu(scanner);
 
         List<MenuOption> mainMenuOptions = Arrays.asList(
-                new MenuOption("1", "Length Converter", converters::lengthConverter),
-                new MenuOption("2", "Speed Converter", converters::speedConverter),
-                new MenuOption("3", "Fuel Consumption Converter", converters::fuelConsConverter),
-                new MenuOption("X", "Exit Application", () -> System.out.println("Exiting application.")));
-
+                new MenuOption("1", () -> "Length Converter", converters::lengthConverter),
+                new MenuOption("2", () -> "Speed Converter", converters::speedConverter),
+                new MenuOption("3", () -> "Fuel Consumption Converter", converters::fuelConsConverter),
+                new MenuOption("X", () -> "Exit Application", () -> System.out.println("Exiting application.")));
         MenuManager.menuLoop(scanner, "Main Menu", mainMenuOptions);
         scanner.close();
     }
@@ -24,75 +24,91 @@ public class Main {
         private FuelData currentFuelData;
 
         public InnerMenu(Scanner scanner) {
-            this.scanner = scanner; // "this" refers to the current object instance
+            this.scanner = scanner;
         }
 
         public void lengthConverter() {
-
             List<MenuOption> lengthMenuOptions = Arrays.asList(
-                    new MenuOption("1", "Meters to Kilometers", () -> {
+                    new MenuOption("1", () -> "Meters to Kilometers", () -> {
                         double meters = InputValidator.getValidDouble(scanner, "Enter meters: ");
                         double kilometers = LogicOperations.metricConvert("1", meters);
                         System.out.println(meters + " meters is " + kilometers + " kilometers.");
                     }),
-                    new MenuOption("2", "Kilometers to Meters", () -> {
+                    new MenuOption("2", () -> "Kilometers to Meters", () -> {
                         double kilometers = InputValidator.getValidDouble(scanner, "Enter kilometers: ");
                         double meters = LogicOperations.metricConvert("2", kilometers);
                         System.out.println(kilometers + " kilometers is " + meters + " meters.");
                     }),
-                    new MenuOption("B", "Back", () -> {
+                    new MenuOption("B", () -> "Back", () -> {
                     }));
-
             MenuManager.menuLoop(scanner, "Length Converter Menu", lengthMenuOptions);
         }
 
         public void speedConverter() {
             List<MenuOption> speedOptions = Arrays.asList(
-                    new MenuOption("1", "km/h to m/s", () -> {
+                    new MenuOption("1", () -> "km/h to m/s", () -> {
                         double kilometersPerHour = InputValidator.getValidDouble(scanner, "Enter speed in km/h: ");
                         double metersPerSecond = LogicOperations.speedConvert("1", kilometersPerHour);
                         System.out.println(kilometersPerHour + " km/h is " + metersPerSecond + " m/s.");
                     }),
-                    new MenuOption("2", "m/s to km/h", () -> {
+                    new MenuOption("2", () -> "m/s to km/h", () -> {
                         double metersPerSecond = InputValidator.getValidDouble(scanner, "Enter speed in m/s: ");
                         double kilometersPerHour = LogicOperations.speedConvert("2", metersPerSecond);
                         System.out.println(metersPerSecond + " m/s is " + kilometersPerHour + " km/h.");
                     }),
-                    new MenuOption("B", "Back", () -> {
+                    new MenuOption("B", () -> "Back", () -> {
                     }));
             MenuManager.menuLoop(scanner, "Speed Converter Menu", speedOptions);
         }
 
         public void fuelConsConverter() {
-            this.currentFuelData = new FuelData(); // resets fuel data for each menu entry
-
-            // This option uses the external calculation method
+            this.currentFuelData = new FuelData();
             List<MenuOption> fuelConsOptions = Arrays.asList(
-                    new MenuOption("1", "Distance", () ->
-                            this.currentFuelData.distance = InputValidator.getValidDouble(scanner,
-                            "Enter distance in kilometers: ")),
-                    new MenuOption("2", "Fuel Amount", () ->
+                    new MenuOption("1", () -> "Distance " + fmt(currentFuelData.distance, "km"), () -> {
+                        this.currentFuelData.distance = InputValidator.getValidDouble(scanner,
+                                "Enter distance in kilometers: ");
+                        autoCalc();
+                    }),
+                    new MenuOption("2", () -> "Fuel Amount " + fmt(currentFuelData.fuelAmount, "L"), () -> {
                         this.currentFuelData.fuelAmount = InputValidator.getValidDouble(scanner,
-                                "Enter fuel amount in liters: ")),
-                    new MenuOption("3", "Fuel Consumption", () ->
-                            this.currentFuelData.fuelConsumption = InputValidator.getValidDouble(scanner,
-                            "Enter fuel consumption in L/100km: ")),
-                    new MenuOption("4", "Fuel Economy", () ->
+                                "Enter fuel amount in liters: ");
+                        autoCalc();
+                    }),
+                    new MenuOption("3", () -> "Fuel Consumption " + fmt(currentFuelData.fuelConsumption, "L/100km"),
+                            () -> {
+                                this.currentFuelData.fuelConsumption = InputValidator.getValidDouble(scanner,
+                                        "Enter fuel consumption in L/100km: ");
+                                autoCalc();
+                            }),
+                    new MenuOption("4", () -> "Fuel Economy " + fmt(currentFuelData.fuelEconomy, "km/L"), () -> {
                         this.currentFuelData.fuelEconomy = InputValidator.getValidDouble(scanner,
-                                "Enter fuel economy in km/L: ")),
-                    new MenuOption("C", "Calculate Results", this::handleCalculationRequest),
-                    new MenuOption("B", "Back", () -> {}));
+                                "Enter fuel economy in km/L: ");
+                        autoCalc();
+                    }),
+                    new MenuOption("B", () -> "Back", () -> {
+                    }));
 
-            MenuManager.menuLoop(scanner, "Fuel Consumption Converter Menu\n Input at least two values [1,2,3,4] and then select [C] to calculate the missing values.",
+            MenuManager.menuLoop(scanner,
+                    "Fuel Consumption Converter Menu\n Input at least two values for [1,2,3,4].",
                     fuelConsOptions);
         }
 
-        public static class FuelData { // stores input values for fuel consumption calculations
+        private static String fmt(Double value, String unit) {
+            return (value == null) ? "" : value + " " + unit;
+        }
+
+        private void autoCalc() {
+            if (currentFuelData != null && currentFuelData.FuelDataCheck()) {
+                handleCalculationRequest();
+            }
+        }
+
+        // stores input values for fuel calculations
+        public static class FuelData {
             public Double distance;
             public Double fuelAmount;
             public Double fuelConsumption;
             public Double fuelEconomy;
-
             public boolean FuelDataCheck() {
                 int count = 0;
                 if (distance != null)
@@ -118,10 +134,19 @@ public class Main {
                 System.out.println("Fuel Amount: " + results.fuelAmount + " liters");
                 System.out.println("Fuel Consumption: " + results.fuelConsumption + " L/100km");
                 System.out.println("Fuel Economy: " + results.fuelEconomy + " km/L");
+
+                // Update current inputs with calculated values so the dynamic menu labels
+                // immediately reflect all computed fields on the next render
+                this.currentFuelData = results;
+
+                // Give the user a moment to read the results before the menu renders again
+                System.out.println("\nPress Enter to return to the menu...");
+                scanner.nextLine();
             } else {
                 System.out.println("\nInsufficient data provided. Please input at least two values.");
             }
         }
+
         // for shared operations inside InnerMenu class
         static class LogicOperations {
             public static double metricConvert(String subChoice, double convertValue) {
@@ -145,19 +170,20 @@ public class Main {
                     return convertValue * 3.6;
                 }
             }
+
             /*
-                   use of "?" same as? =     double distance;
-                if (input.distance != null) distance = input.distance;
-                else distance = 0;
-
-                String label = (name != null) ? name : "(unknown)";
-
-                Shorten if-else
-                int sign = (n >= 0) ? 1 : -1;
-
-                Nested choice
-                int tier = (score >= 90) ? 1 : (score >= 75) ? 2 : 3;  // 1, 2, or 3
-
+             * use of "?" same as? = double distance;
+             * if (input.distance != null) distance = input.distance;
+             * else distance = 0;
+             * 
+             * String label = (name != null) ? name : "(unknown)";
+             * 
+             * Shorten if-else
+             * int sign = (n >= 0) ? 1 : -1;
+             * 
+             * Nested choice
+             * int tier = (score >= 90) ? 1 : (score >= 75) ? 2 : 3; // 1, 2, or 3
+             * 
              */
             public static FuelData fuelConsConvert(FuelData input) {
                 double distance = (input.distance != null) ? input.distance : 0;
@@ -171,14 +197,12 @@ public class Main {
                 }
 
                 // Compute missing values using relationships
-                if (distance == 0 && fuelLiters > 0 && kmPerL > 0) distance = fuelLiters * kmPerL;
-                if (fuelLiters == 0 && distance > 0 && kmPerL > 0) fuelLiters = distance / kmPerL;
-                if (kmPerL == 0 && distance > 0 && fuelLiters > 0) kmPerL = distance / fuelLiters;
-
-                // Validate final state
-                if (kmPerL == 0) {
-                    throw new IllegalArgumentException("Insufficient or invalid data (km/L is zero)");
-                }
+                if (distance == 0 && fuelLiters > 0 && kmPerL > 0)
+                    distance = fuelLiters * kmPerL;
+                if (fuelLiters == 0 && distance > 0 && kmPerL > 0)
+                    fuelLiters = distance / kmPerL;
+                if (kmPerL == 0 && distance > 0 && fuelLiters > 0)
+                    kmPerL = distance / fuelLiters;
 
                 FuelData out = new FuelData();
                 out.distance = distance;
@@ -190,12 +214,11 @@ public class Main {
         }
     }
 
-    public record MenuOption(String key, String description, Runnable action) {
-
+    public record MenuOption(String key, Supplier<String> label, Runnable action) {
         public void execute() {
-                action.run();
-            }
+            action.run();
         }
+    }
 
     public static class MenuManager {
 
@@ -203,21 +226,22 @@ public class Main {
             while (true) {
                 System.out.println("\n " + title);
                 for (MenuOption option : options) {
-                    System.out.println("[" + option.key() + "] " + option.description());
+                    System.out.println("[" + option.key() + "] " + option.label().get());
                 }
 
                 String choice = InputValidator.getValidString(scanner, "\n> ");
-                boolean found = false; // to track if a valid option was found
+                boolean found = false;
 
                 for (MenuOption option : options) {
-                    if (option.key().equalsIgnoreCase(choice) || option.description().equalsIgnoreCase(choice)) {
+                    String labelNow = option.label().get();
+                    if (option.key().equalsIgnoreCase(choice) || labelNow.equalsIgnoreCase(choice)) {
                         option.execute();
                         found = true;
-
-                        if (option.key().equalsIgnoreCase("X") || option.description().equalsIgnoreCase("Back")) {
-                            return; // Exit the menu loop
+                        if (option.key().equalsIgnoreCase("X") || option.key().equalsIgnoreCase("B")
+                                || labelNow.equalsIgnoreCase("Back")) {
+                            return; // exit current menu
                         }
-                        break;
+                        break; // processed a valid option
                     }
                 }
                 if (!found) {
@@ -228,7 +252,6 @@ public class Main {
     }
 
     public static class InputValidator {
-
         public static double getValidDouble(Scanner scanner, String prompt) {
             while (true) {
                 System.out.print(prompt);
